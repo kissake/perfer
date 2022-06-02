@@ -120,9 +120,13 @@ else:
 
 if cwdRequested is not None:
     CWD=os.getcwd()
+else:
+    CWD=None
 
 if cmdRequested is not None:
     CMD=sys.argv[1:]
+else:
+    CMD=None
 
 
 if DEBUG:
