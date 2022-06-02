@@ -1,0 +1,38 @@
+This is a very simple python script to grab the barest of details from a
+process being run from a script in order to collect performance information.
+
+This data is collected into a file in CSV format, perfectly prepared to import
+into Excel, or OpenOffice Calc, or any other CSV-happy processor (sqlite?)
+
+Example usage:
+
+export PERFEROUTPUT=`mktemp`
+export PERFERENVIRON="PATH:PERL5LIB"
+export PERFERCWD=TRUE
+export PERFERCMD=TRUE
+perfer --header
+
+perfer <command to be monitored>
+perfer <command to be monitored>
+perfer <command to be monitored>
+perfer <command to be monitored>
+perfer <command to be monitored>
+perfer <command to be monitored>
+perfer <command to be monitored>
+perfer <command to be monitored>
+perfer <command to be monitored>
+perfer <command to be monitored>
+perfer <command to be monitored>
+
+
+In the above example, the environment variables set the context for perfer to
+run.  The first call creates the performance data file, including the headers.
+The subsequent times perfer is called, it appends to the existing file the 
+stats of the command called.
+
+Once this data is collected, you can, for example, determine where most of the
+CPU or wall clock time is spent, you can see the exact commands executed and
+when, you can see how much memory or I/O is performed.
+
+With this information you can start to identify bottlenecks in your processes
+so that you can begin to make improvements.
