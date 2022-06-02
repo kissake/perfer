@@ -1,0 +1,16 @@
+ToDo items:
+ - Add an option to create per-PID files to record data.  This may help if running
+   multiple concurrent threads to avoid one thread overwriting data for another.  
+   This looks like:
+    * <filename>_header - header data
+    * <filename>-<pid#1> - performance for process with PID....
+   *** Note that the data then needs to be coalesced, probably with something like: 
+       cat <filename>_header <filename>-* (note the underscore and dash distinction).
+       
+ - Move the file open to the location where the write occurs.  No need to hold the 
+   file open the entire time the process runs.  This probably comes by default with 
+   the previous option due to filename differences.
+ 
+  - Create a simple tool to do basic analysis.  E.g.:
+     * Graph usages over time using process start and end times.
+     * Identify likely CPU bound, memory bound, or IO bound processes out of a list.
