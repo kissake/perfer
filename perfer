@@ -1,0 +1,182 @@
+#!/usr/bin/python3
+
+import resource as resource
+import sys as sys
+import subprocess as subprocess
+import pprint as pprint
+import os as os
+import time as time
+import csv as csv
+
+#####
+##### SUBROUTINES / OUTPUT / FORMATTING
+#####
+
+
+def outputHeader(startClock, startPerf, finishClock, finishPerf, outputFile, 
+        showEnv=False, environmentVars=None, environment={},
+        showCwd=False, currentWorkingDirectory=None, 
+        showCmd=False, commandWArgs=None):
+
+    outputWriter = csv.writer(outputFile)
+    thisLine= [
+        "Wall clock time, in seconds",
+        "CPU time in userspace, in seconds",
+        "CPU time in system, in seconds",
+        "Max resident set size in kB",
+        "Shared memory size (unk)",
+        "Unshared memory size (unk)",
+        "Unshared stack size (unk)",
+        "Page faults not req. i/o",
+        "Page faults requiring i/o",
+        "Number of swap outs",
+        "Nuber of block input operations",
+        "Number of block output operations",
+        "IPC messages sent (unk)",
+        "IPC messages received (unk)",
+        "Signals received (unk)",
+        "Voluntary context switches (wait(), select())",
+        "Involuntary context switches (resource contention)",
+        "Command start time, absolute, unix time"
+        ]
+    if showCwd is not None:
+        thisLine.append("Current working directory")
+
+    if showEnv is not None:
+        thisLine.extend(environmentVars)
+
+    if showCmd is not None:
+        thisLine.append("Command (with arguments in following columns)")
+
+    outputWriter.writerow(thisLine)
+
+def outputPerf(startClock, startPerf, finishClock, finishPerf, outputFile, 
+        showEnv=False, environmentVars=None, environment={},
+        showCwd=False, currentWorkingDirectory=None, 
+        showCmd=False, commandWArgs=None):
+
+    outputWriter = csv.writer(outputFile)
+    thisLine= [
+        finishClock - startClock,                   # Wall clock time, in seconds
+        finishPerf.ru_utime - startPerf.ru_utime,   # CPU time in userspace, in seconds
+        finishPerf.ru_stime - startPerf.ru_stime,   # CPU time in system, in seconds
+        finishPerf.ru_maxrss - startPerf.ru_maxrss, # Max resident set size in kB
+        finishPerf.ru_ixrss - startPerf.ru_ixrss,   # Shared memory size (unk)
+        finishPerf.ru_idrss - startPerf.ru_idrss,   # Unshared memory size (unk)
+        finishPerf.ru_isrss - startPerf.ru_isrss,   # Unshared stack size (unk)
+        finishPerf.ru_minflt - startPerf.ru_minflt, # Page faults not req. i/o
+        finishPerf.ru_majflt - startPerf.ru_majflt, # Page faults requiring i/o
+        finishPerf.ru_nswap - startPerf.ru_nswap,   # Number of swap outs
+        finishPerf.ru_inblock - startPerf.ru_inblock,   # Nuber of block input operations
+        finishPerf.ru_oublock - startPerf.ru_oublock,   # Number of block output operations
+        finishPerf.ru_msgsnd - startPerf.ru_msgsnd, # IPC messages sent (unk)
+        finishPerf.ru_msgrcv - startPerf.ru_msgrcv, # IPC messages received (unk)
+        finishPerf.ru_nsignals - startPerf.ru_nsignals, # Signals received (unk)
+        finishPerf.ru_nvcsw - startPerf.ru_nvcsw,   # Voluntary context switches (wait(), select())
+        finishPerf.ru_nivcsw - startPerf.ru_nivcsw, # Involuntary context switches (resource contention)
+        startClock                                  # Command start time, absolute, unix time.
+        ]
+
+    if showCwd:
+        thisLine.append(currentWorkingDirectory)
+
+    if showEnv is not None:
+        thisLine.extend([environment.get(key,'') for key in environmentVars])
+
+    if showCmd is not None:
+        thisLine.extend(commandWArgs)
+
+    outputWriter.writerow(thisLine)
+
+
+#####
+##### PARSE THE ENVIRONMENT
+#####
+
+environment=os.environ
+debugRequested=environment.get('PERFERDEBUG')
+outputRequested=environment.get('PERFEROUTPUT')
+environRequested=environment.get('PERFERENVIRON')
+cwdRequested=environment.get('PERFERCWD')
+cmdRequested=environment.get('PERFERCMD')
+
+if debugRequested is None:
+    DEBUG=False
+else:
+    DEBUG=sys.stderr
+
+if outputRequested is None:
+    OUTPUT=sys.stderr
+else:
+    # Note, we open in append mode.  It is users responsibility to specify
+    # a file that doesn't exist if they want to start new.
+    OUTPUT=open(outputRequested,'a')
+
+if environRequested is None:
+    ENVIRON=()
+else:
+    # Split ENVIRON variable on colons.
+    ENVIRON=environRequested.split(':') 
+
+if cwdRequested is not None:
+    CWD=os.getcwd()
+
+if cmdRequested is not None:
+    CMD=sys.argv[1:]
+
+
+if DEBUG:
+    pprint.pprint(os.getcwd(), stream=DEBUG)
+    pprint.pprint(os.environ, stream=DEBUG)
+    pprint.pprint(sys.argv, stream=DEBUG)
+
+
+
+#####
+##### ARGUMENT PARSING
+#####
+#
+# Argument parsing (we only accept one commandline argument, and only when it is alone and bare)
+
+if len(sys.argv) == 2 and sys.argv[1] == '--header':
+    # They we are being requested to open the output file for the first time,
+    # and place the headers corresponding to the current environment variables.
+    outputHeader(None, None, None, None, OUTPUT, 
+            showEnv=environRequested, environmentVars=ENVIRON,
+            showCwd=cwdRequested,
+            showCmd=cmdRequested)
+    exit(0)
+    
+
+
+#####
+##### PERFORMANCE / MEASURING
+#####
+
+# Measure resource usage of child processes before subprocess.
+allResourcesStart = resource.getrusage(resource.RUSAGE_CHILDREN)
+clockStart = time.time()
+
+# Start subprocess with popen or comparable, using our stdin, stdout stderr and
+# other file handles, along with environment variables.
+measuredProcess = subprocess.Popen(sys.argv[1:], bufsize=0)
+
+# Wait for process to complete
+result = measuredProcess.wait()
+
+# Measure resource usage of child processes after subprocess returns.
+clockStop = time.time()
+allResourcesFinish = resource.getrusage(resource.RUSAGE_CHILDREN)
+
+if DEBUG:
+    pprint.pprint(allResourcesStart, stream=DEBUG)
+    pprint.pprint(clockStart, stream=DEBUG)
+    pprint.pprint(clockStop, stream=DEBUG)
+    pprint.pprint(allResourcesFinish, stream=DEBUG)
+
+outputPerf(clockStart, allResourcesStart, clockStop, allResourcesFinish, OUTPUT, 
+        showEnv=environRequested, environmentVars=ENVIRON, environment=os.environ,
+        showCwd=cwdRequested, currentWorkingDirectory=CWD, 
+        showCmd=cmdRequested, commandWArgs=CMD )
+
+exit(result)
