@@ -142,6 +142,20 @@ if DEBUG:
 #
 # Argument parsing (we only accept one commandline argument, and only when it is alone and bare)
 
+if len(sys.argv) < 2 or sys.argv[1] == '--help': 
+    print('''
+Example usage:
+
+export PERFEROUTPUT=`mktemp`
+export PERFERENVIRON="PATH:PERL5LIB"
+export PERFERCWD=TRUE
+export PERFERCMD=TRUE
+perfer --header
+
+perfer <command to be monitored>
+''')
+    exit(0)
+
 if len(sys.argv) == 2 and sys.argv[1] == '--header':
     # They we are being requested to open the output file for the first time,
     # and place the headers corresponding to the current environment variables.
@@ -150,7 +164,7 @@ if len(sys.argv) == 2 and sys.argv[1] == '--header':
             showCwd=cwdRequested,
             showCmd=cmdRequested)
     exit(0)
-    
+
 
 
 #####
