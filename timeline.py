@@ -24,6 +24,22 @@ icsw="Involuntary context switches (resource contention)"
 start="Command start time, absolute, unix time"
 cmd="Command (with arguments in following columns)"
 
+end="Command finish time (calculated)"
+
+numberFields = (
+        wall, 
+        userCpu, 
+        sysCpu, 
+        mem, 
+        cacheio, 
+        diskio, 
+        swapout, 
+        blockin, 
+        blockout, 
+        vcsw, 
+        icsw, 
+        start 
+    )
 
 
 
@@ -32,7 +48,24 @@ cmd="Command (with arguments in following columns)"
 #####
 
 
-def readFile(inputFile, reportValues):
+def perferReader(inputFile):
+
+    reader = csv.DictReader(inputFile)
+
+    dataPoints = []
+
+    for line in reader:
+        for number in numberFields:
+            # NOTE: Some of these are actually integers...
+            line[number] = float(line[number]) 
+
+        line[end] = line[start] + line[wall] # Calcuated, for convenience(?)
+
+        dataPoints.append(line)
+
+    return dataPoints
+
+def readDeltas(inputFile, reportValues):
 
     deltas = []
 
@@ -63,56 +96,29 @@ def readFile(inputFile, reportValues):
     return deltas
 
 
-reportOn = (userCpu,sysCpu, mem, blockin, blockout,)
+def topNmeasurements(data, variable, N=5):
+    # sort by the 'variable' being tested, to report the highest N values in that
+    # column.
+    
+    data.sort(key=lambda datapoint: datapoint[1][variable])
 
-deltas = readFile(sys.stdin, reportOn)
-deltas.sort(key=lambda cpudelta: cpudelta[0])
-
-runningTotal = {}
-for delta in deltas:
-    time = delta[0]
-    changes = delta[1]
-    print("time: %f" % (time))
-    for value in reportOn:
-        runningTotal[value] = runningTotal.get(value,0.0) + changes[value]
-        print("\ttotal: %f" % (runningTotal[value]))
-
-exit(0)
-
-if debugRequested is None:
-    DEBUG=False
-else:
-    DEBUG=sys.stderr
-
-if DEBUG:
-    pprint.pprint(os.getcwd(), stream=DEBUG)
-    pprint.pprint(os.environ, stream=DEBUG)
-    pprint.pprint(sys.argv, stream=DEBUG)
+    return data[0:5]
 
 
+if __name__ == "__main__":
 
-#####
-##### ARGUMENT PARSING
-#####
-#
-# Argument parsing (we only accept one commandline argument, and only when it is alone and bare)
+    reportOn = (userCpu,sysCpu, mem, blockin, blockout,)
 
-if len(sys.argv) < 2 or sys.argv[1] == '--help': 
-    print('''
-Example usage:
+    deltas = readDeltas(sys.stdin, reportOn)
+    deltas.sort(key=lambda cpudelta: cpudelta[0])
 
-export PERFEROUTPUT=`mktemp`
-export PERFERENVIRON="PATH:PERL5LIB"
-export PERFERCWD=TRUE
-export PERFERCMD=TRUE
-perfer --header
+    runningTotal = {}
+    for delta in deltas:
+        time = delta[0]
+        changes = delta[1]
+        print("time: %f" % (time))
+        for value in reportOn:
+            runningTotal[value] = runningTotal.get(value,0.0) + changes[value]
+            print("\ttotal: %f" % (runningTotal[value]))
 
-perfer <command to be monitored>
-''')
-    exit(0)
-
-#####
-##### MAIN
-#####
-
-exit()
+    print(topNmeasurements(deltas, userCpu))
