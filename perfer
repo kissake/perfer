@@ -8,6 +8,30 @@ import os as os
 import time as time
 import csv as csv
 
+##### SHARED STRINGS
+
+# Column headers
+wall =     "Wall clock time, in seconds"
+userCpu =  "CPU time in userspace, in seconds"
+sysCpu =   "CPU time in system, in seconds"
+mem =      "Max resident set size in kB"
+shmem =    "Shared memory size (unk)",
+ushmem =   "Unshared memory size (unk)",
+ushstack = "Unshared stack size (unk)",
+cacheio =  "Page faults not req. i/o"
+diskio =   "Page faults requiring i/o"
+swapout =  "Number of swap outs"
+blockin =  "Nuber of block input operations"
+blockout = "Number of block output operations"
+ipcs =     "IPC messages sent (unk)",
+ipcr =     "IPC messages received (unk)",
+signal =   "Signals received (unk)",
+vcsw =     "Voluntary context switches (wait(), select())"
+icsw =     "Involuntary context switches (resource contention)"
+start =    "Command start time, absolute, unix time"
+cmd =      "Command (with arguments in following columns)"
+cwd =      "Current working directory"
+
 #####
 ##### SUBROUTINES / OUTPUT / FORMATTING
 #####
@@ -20,33 +44,33 @@ def outputHeader(startClock, startPerf, finishClock, finishPerf, outputFile,
 
     outputWriter = csv.writer(outputFile)
     thisLine= [
-        "Wall clock time, in seconds",
-        "CPU time in userspace, in seconds",
-        "CPU time in system, in seconds",
-        "Max resident set size in kB",
-        "Shared memory size (unk)",
-        "Unshared memory size (unk)",
-        "Unshared stack size (unk)",
-        "Page faults not req. i/o",
-        "Page faults requiring i/o",
-        "Number of swap outs",
-        "Nuber of block input operations",
-        "Number of block output operations",
-        "IPC messages sent (unk)",
-        "IPC messages received (unk)",
-        "Signals received (unk)",
-        "Voluntary context switches (wait(), select())",
-        "Involuntary context switches (resource contention)",
-        "Command start time, absolute, unix time"
+        wall,
+        userCpu,
+        sysCpu,
+        mem,
+        shmem,
+        ushmem,
+        ushstack,
+        cacheio,
+        diskio,
+        swapout,
+        blockin,
+        blockout,
+        ipcs,
+        ipcr,
+        signal,
+        vcsw,
+        icsw,
+        start,
         ]
     if showCwd is not None:
-        thisLine.append("Current working directory")
+        thisLine.append(cwd)
 
     if showEnv is not None:
         thisLine.extend(environmentVars)
 
     if showCmd is not None:
-        thisLine.append("Command (with arguments in following columns)")
+        thisLine.append(cmd)
 
     outputWriter.writerow(thisLine)
 
@@ -90,8 +114,11 @@ def outputPerf(startClock, startPerf, finishClock, finishPerf, outputFile,
 
 
 #####
-##### PARSE THE ENVIRONMENT
+##### READ THE ENVIRONMENT
 #####
+
+# This is outside the main loop so that we can make this data readily / portably
+# available to programs using this as a module.
 
 environment=os.environ
 debugRequested=environment.get('PERFERDEBUG')
@@ -100,101 +127,109 @@ environRequested=environment.get('PERFERENVIRON')
 cwdRequested=environment.get('PERFERCWD')
 cmdRequested=environment.get('PERFERCMD')
 
-if debugRequested is None:
-    DEBUG=False
-else:
-    DEBUG=sys.stderr
 
-if outputRequested is None:
-    OUTPUT=sys.stderr
-else:
-    # Note, we open in append mode.  It is users responsibility to specify
-    # a file that doesn't exist if they want to start new.
-    OUTPUT=open(outputRequested,'a')
+if __name__ == "__main__":
 
-if environRequested is None:
-    ENVIRON=()
-else:
-    # Split ENVIRON variable on colons.
-    ENVIRON=environRequested.split(':') 
+    #####
+    ##### PARSE THE ENVIRONMENT
+    #####
 
-if cwdRequested is not None:
-    CWD=os.getcwd()
-else:
-    CWD=None
+    if debugRequested is None:
+        DEBUG=False
+    else:
+        DEBUG=sys.stderr
 
-if cmdRequested is not None:
-    CMD=sys.argv[1:]
-else:
-    CMD=None
+    if outputRequested is None:
+        OUTPUT=sys.stderr
+    else:
+        # Note, we open in append mode.  It is users responsibility to specify
+        # a file that doesn't exist if they want to start new.
+        OUTPUT=open(outputRequested,'a')
 
+    if environRequested is None:
+        ENVIRON=()
+    else:
+        # Split ENVIRON variable on colons.
+        ENVIRON=environRequested.split(':') 
 
-if DEBUG:
-    pprint.pprint(os.getcwd(), stream=DEBUG)
-    pprint.pprint(os.environ, stream=DEBUG)
-    pprint.pprint(sys.argv, stream=DEBUG)
+    if cwdRequested is not None:
+        CWD=os.getcwd()
+    else:
+        CWD=None
 
-
-
-#####
-##### ARGUMENT PARSING
-#####
-#
-# Argument parsing (we only accept one commandline argument, and only when it is alone and bare)
-
-if len(sys.argv) < 2 or sys.argv[1] == '--help': 
-    print('''
-Example usage:
-
-export PERFEROUTPUT=`mktemp`
-export PERFERENVIRON="PATH:PERL5LIB"
-export PERFERCWD=TRUE
-export PERFERCMD=TRUE
-perfer --header
-
-perfer <command to be monitored>
-''')
-    exit(0)
-
-if len(sys.argv) == 2 and sys.argv[1] == '--header':
-    # They we are being requested to open the output file for the first time,
-    # and place the headers corresponding to the current environment variables.
-    outputHeader(None, None, None, None, OUTPUT, 
-            showEnv=environRequested, environmentVars=ENVIRON,
-            showCwd=cwdRequested,
-            showCmd=cmdRequested)
-    exit(0)
+    if cmdRequested is not None:
+        CMD=sys.argv[1:]
+    else:
+        CMD=None
 
 
 
-#####
-##### PERFORMANCE / MEASURING
-#####
+    if DEBUG:
+        pprint.pprint(os.getcwd(), stream=DEBUG)
+        pprint.pprint(os.environ, stream=DEBUG)
+        pprint.pprint(sys.argv, stream=DEBUG)
 
-# Measure resource usage of child processes before subprocess.
-allResourcesStart = resource.getrusage(resource.RUSAGE_CHILDREN)
-clockStart = time.time()
 
-# Start subprocess with popen or comparable, using our stdin, stdout stderr and
-# other file handles, along with environment variables.
-measuredProcess = subprocess.Popen(sys.argv[1:], bufsize=0)
 
-# Wait for process to complete
-result = measuredProcess.wait()
+    #####
+    ##### ARGUMENT PARSING
+    #####
+    #
+    # Argument parsing (we only accept one commandline argument, and only when it is alone and bare)
 
-# Measure resource usage of child processes after subprocess returns.
-clockStop = time.time()
-allResourcesFinish = resource.getrusage(resource.RUSAGE_CHILDREN)
+    if len(sys.argv) < 2 or sys.argv[1] == '--help': 
+        print('''
+    Example usage:
 
-if DEBUG:
-    pprint.pprint(allResourcesStart, stream=DEBUG)
-    pprint.pprint(clockStart, stream=DEBUG)
-    pprint.pprint(clockStop, stream=DEBUG)
-    pprint.pprint(allResourcesFinish, stream=DEBUG)
+    export PERFEROUTPUT=`mktemp`
+    export PERFERENVIRON="PATH:PERL5LIB"
+    export PERFERCWD=TRUE
+    export PERFERCMD=TRUE
+    perfer --header
 
-outputPerf(clockStart, allResourcesStart, clockStop, allResourcesFinish, OUTPUT, 
-        showEnv=environRequested, environmentVars=ENVIRON, environment=os.environ,
-        showCwd=cwdRequested, currentWorkingDirectory=CWD, 
-        showCmd=cmdRequested, commandWArgs=CMD )
+    perfer <command to be monitored>
+    ''')
+        exit(0)
 
-exit(result)
+    if len(sys.argv) == 2 and sys.argv[1] == '--header':
+        # They we are being requested to open the output file for the first time,
+        # and place the headers corresponding to the current environment variables.
+        outputHeader(None, None, None, None, OUTPUT, 
+                showEnv=environRequested, environmentVars=ENVIRON,
+                showCwd=cwdRequested,
+                showCmd=cmdRequested)
+        exit(0)
+
+
+
+    #####
+    ##### PERFORMANCE / MEASURING
+    #####
+
+    # Measure resource usage of child processes before subprocess.
+    allResourcesStart = resource.getrusage(resource.RUSAGE_CHILDREN)
+    clockStart = time.time()
+
+    # Start subprocess with popen or comparable, using our stdin, stdout stderr and
+    # other file handles, along with environment variables.
+    measuredProcess = subprocess.Popen(sys.argv[1:], bufsize=0)
+
+    # Wait for process to complete
+    result = measuredProcess.wait()
+
+    # Measure resource usage of child processes after subprocess returns.
+    clockStop = time.time()
+    allResourcesFinish = resource.getrusage(resource.RUSAGE_CHILDREN)
+
+    if DEBUG:
+        pprint.pprint(allResourcesStart, stream=DEBUG)
+        pprint.pprint(clockStart, stream=DEBUG)
+        pprint.pprint(clockStop, stream=DEBUG)
+        pprint.pprint(allResourcesFinish, stream=DEBUG)
+
+    outputPerf(clockStart, allResourcesStart, clockStop, allResourcesFinish, OUTPUT, 
+            showEnv=environRequested, environmentVars=ENVIRON, environment=os.environ,
+            showCwd=cwdRequested, currentWorkingDirectory=CWD, 
+            showCmd=cmdRequested, commandWArgs=CMD )
+
+    exit(result)
