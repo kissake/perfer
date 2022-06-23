@@ -67,18 +67,31 @@ def topNaggregateMeasurements(data, variable, aggregateOn=cmd, N=5):
     # After aggregating based on the specified variable, then:
     # sort by the 'variable' being tested, to report the highest N values in that
     # column.
+    aggCol = 0
+    dataCol = 1
+    valueCol = 0
+    countCol = 1
     
     aggregate = {}
 
     for datapoint in data:
         agg = datapoint[aggregateOn]
+        thisAgg = aggregate.get(agg, (0.0, 0))
         # Add the value for this datapoint to previous sum, starting at 0.0.
-        aggregate[agg] = datapoint.get(variable) + aggregate.get(agg, 0.0)
+        # Increment the counter for # of occurrences aggregated into this sum
+        aggregate[agg] = ( datapoint.get(variable) + thisAgg[valueCol], thisAgg[countCol] + 1)
 
     output = list(aggregate.items())
-    output.sort(key=lambda datapoint: datapoint[1])
+    output.sort(key=lambda datapoint: datapoint[dataCol][valueCol])
 
-    return output[(-1*(N)):]
+    print("Programs using the most %s" % (variable))
+    print("total\t\tcount\t(avg)\taggregate")
+
+    # return output[(-1*(N)):]
+
+    for topAgg in output[(-1*N):]:
+        print("%f:\t%d\t(%f)\t%s" % (topAgg[dataCol][valueCol], topAgg[dataCol][countCol], topAgg[dataCol][valueCol] / topAgg[dataCol][countCol], topAgg[aggCol]))
+
 
 
 def topNmeasurements(data, variable, N=5):
@@ -86,7 +99,6 @@ def topNmeasurements(data, variable, N=5):
     # column.
     
     data.sort(key=lambda datapoint: datapoint[variable])
-
     return data[(-1*N):]
 
 
@@ -101,8 +113,6 @@ if __name__ == "__main__":
     for measure in measures:
         print("%f:\t%s" % (measure[userCpu], measure[cmd]))
     print()
-    print("Programs using the most total CPU")
-    agg = topNaggregateMeasurements(data, userCpu, N=5)
-    for topAgg in agg:
-        print("%f:\t%s" % (topAgg[1], topAgg[0]))
-
+    for report in reportOn:
+        print()
+        topNaggregateMeasurements(data, report, N=5)
