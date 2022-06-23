@@ -4,38 +4,25 @@ import pprint as pprint
 import time as time
 import csv as csv
 import sys as sys
+import perfer as perfer
 
-
-
-wall="Wall clock time, in seconds"
-userCpu="CPU time in userspace, in seconds"
-sysCpu="CPU time in system, in seconds"
-mem="Max resident set size in kB"
-cacheio="Page faults not req. i/o"
-diskio="Page faults requiring i/o"
-swapout="Number of swap outs"
-blockin="Nuber of block input operations"
-blockout="Number of block output operations"
-vcsw="Voluntary context switches (wait(), select())"
-icsw="Involuntary context switches (resource contention)"
-start="Command start time, absolute, unix time"
-cmd="Command (with arguments in following columns)"
-
+# Locally defined (maybe later to be put into module, with
+# some surrounding functionality?
 end="Command finish time (calculated)"
 
 numberFields = (
-        wall, 
-        userCpu, 
-        sysCpu, 
-        mem, 
-        cacheio, 
-        diskio, 
-        swapout, 
-        blockin, 
-        blockout, 
-        vcsw, 
-        icsw, 
-        start 
+        perfer.wall, 
+        perfer.userCpu, 
+        perfer.sysCpu, 
+        perfer.mem, 
+        perfer.cacheio, 
+        perfer.diskio, 
+        perfer.swapout, 
+        perfer.blockin, 
+        perfer.blockout, 
+        perfer.vcsw, 
+        perfer.icsw, 
+        perfer.start 
     )
 
 
@@ -56,14 +43,14 @@ def perferReader(inputFile):
             # NOTE: Some of these are actually integers...
             line[number] = float(line[number]) 
 
-        line[end] = line[start] + line[wall] # Calcuated, for convenience(?)
+        line[end] = line[perfer.start] + line[perfer.wall] # Calcuated, for convenience(?)
 
         dataPoints.append(line)
 
     return dataPoints
 
 
-def topNaggregateMeasurements(data, variable, aggregateOn=cmd, N=5):
+def topNaggregateMeasurements(data, variable, aggregateOn=perfer.cmd, N=5):
     # After aggregating based on the specified variable, then:
     # sort by the 'variable' being tested, to report the highest N values in that
     # column.
@@ -104,15 +91,15 @@ def topNmeasurements(data, variable, N=5):
 
 if __name__ == "__main__":
 
-    reportOn = (userCpu,sysCpu, mem, blockin, blockout,)
+    reportOn = (perfer.userCpu, perfer.sysCpu, perfer.mem, perfer.blockin, perfer.blockout,)
 
     data = perferReader(sys.stdin)
 
     print("Individual processes using the most CPU")
-    measures = topNmeasurements(data, userCpu)
+    measures = topNmeasurements(data, perfer.userCpu)
     for measure in measures:
-        print("%f:\t%s" % (measure[userCpu], measure[cmd]))
+        print("%f:\t%s" % (measure[perfer.userCpu], measure[perfer.cmd]))
     print()
     for report in reportOn:
         print()
-        topNaggregateMeasurements(data, report, N=5)
+        topNaggregateMeasurements(data, report)
