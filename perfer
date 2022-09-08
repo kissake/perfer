@@ -189,7 +189,7 @@ if __name__ == "__main__":
 
     perfer <command to be monitored>
     ''')
-        exit(0)
+        sys.exit(0)
 
     if len(sys.argv) == 2 and sys.argv[1] == '--header':
         # They we are being requested to open the output file for the first time,
@@ -198,7 +198,7 @@ if __name__ == "__main__":
                 showEnv=environRequested, environmentVars=ENVIRON,
                 showCwd=cwdRequested,
                 showCmd=cmdRequested)
-        exit(0)
+        sys.exit(0)
 
 
 
@@ -232,4 +232,4 @@ if __name__ == "__main__":
             showCwd=cwdRequested, currentWorkingDirectory=CWD, 
             showCmd=cmdRequested, commandWArgs=CMD )
 
-    exit(result)
+    sys.exit(result)
